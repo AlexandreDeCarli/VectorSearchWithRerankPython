@@ -37,7 +37,6 @@ def test_init_ranker_sentence_transformers_fallback():
     
     mock_cross_encoder_instance = MagicMock()
     with patch('sentence_transformers.CrossEncoder', return_value=mock_cross_encoder_instance) as mock_ce_class:
-        import torch
         reranker.init_ranker(model_name)
         
         assert reranker.is_t5 is False
@@ -48,7 +47,6 @@ def test_init_ranker_sentence_transformers_fallback():
             model_name,
             model_kwargs={
                 'low_cpu_mem_usage': True,
-                'torch_dtype': torch.bfloat16,
                 'trust_remote_code': True
             }
         )

@@ -87,12 +87,10 @@ def init_ranker(model_name: str):
             # Fallback to Sentence-Transformers for custom Hugging Face classification models
             try:
                 from sentence_transformers import CrossEncoder
-                import torch
                 ranker = CrossEncoder(
                     model_name,
                     model_kwargs={
                         'low_cpu_mem_usage': True,
-                        'torch_dtype': torch.bfloat16,
                         'trust_remote_code': True
                     }
                 )
