@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vector_app_python_prod
+
+    environment:
+      PORT: ${PORT:-3000}
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      DB_DIALECT: ${DB_DIALECT:-heatwave}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-embedding-2}
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      RERANK_MODEL: ${RERANK_MODEL:-unicamp-dl/monoptt5-base}
+      RERANK_TOP_K: ${RERANK_TOP_K:-20}
+    restart: always

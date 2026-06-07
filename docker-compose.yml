@@ -1,0 +1,49 @@
+services:
+  db:
+    image: mariadb:11.8
+    container_name: vector_db_python
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASS:-root}
+      MARIADB_DATABASE: ${DB_NAME:-meu_vector_db}
+      MARIADB_USER: ${DB_USER:-app_user}
+      MARIADB_PASSWORD: ${DB_PASS:-app_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - ./database.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p$$MARIADB_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: vector_app_python
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      PORT: ${PORT:-3000}
+      DB_HOST: db
+      DB_USER: ${DB_USER:-app_user}
+      DB_PASS: ${DB_PASS:-app_password}
+      DB_NAME: ${DB_NAME:-meu_vector_db}
+      DB_PORT: 3306
+      DB_DIALECT: ${DB_DIALECT:-mariadb}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-embedding-2}
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-local_app_password}
+      JWT_SECRET: ${JWT_SECRET:-local_jwt_secret}
+      RERANK_MODEL: ${RERANK_MODEL:-unicamp-dl/monoptt5-base}
+      RERANK_TOP_K: ${RERANK_TOP_K:-20}
+    volumes:
+      - ./flashrank_cache:/app/flashrank_cache
+      - ./huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
