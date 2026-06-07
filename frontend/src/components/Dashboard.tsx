@@ -28,6 +28,7 @@ interface SearchResult {
   conteudo: string;
   similarity: number;
   rerank_score?: number;
+  original_rank?: number | null;
 }
 
 interface ResultItemProps {
@@ -558,8 +559,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         </div>
                         <div className="results-list">
                           {searchResults.reranked.map((res, newIndex) => {
-                            const origIndex = searchResults.original.findIndex(x => x.id === res.id);
-                            const shift = origIndex !== -1 ? origIndex - newIndex : null;
+                            const shift = res.original_rank !== undefined && res.original_rank !== null
+                              ? res.original_rank - newIndex
+                              : (() => {
+                                  const origIndex = searchResults.original.findIndex(x => x.id === res.id);
+                                  return origIndex !== -1 ? origIndex - newIndex : null;
+                                })();
 
                             return (
                               <ResultItem

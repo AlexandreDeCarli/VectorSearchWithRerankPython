@@ -159,9 +159,10 @@ async def search(body: SearchBody, _user=Depends(get_current_user)):
                         'titulo': r['titulo'],
                         'conteudo': r['conteudo'],
                         'similarity': float(r['similarity']),
+                        'original_rank': idx,
                     },
                 }
-                for r in rows
+                for idx, r in enumerate(rows)
             ]
 
             reranked = rerank(query=body.query, passages=passages, top_n=10)
@@ -174,6 +175,7 @@ async def search(body: SearchBody, _user=Depends(get_current_user)):
                     'conteudo': item['meta']['conteudo'],
                     'similarity': item['meta']['similarity'],
                     'rerank_score': item['score'],
+                    'original_rank': item['meta'].get('original_rank'),
                 }
                 for item in reranked
             ]
