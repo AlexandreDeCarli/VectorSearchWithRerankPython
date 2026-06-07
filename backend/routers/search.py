@@ -174,7 +174,7 @@ async def search(body: SearchBody, _user=Depends(get_current_user)):
                     'titulo': item['meta']['titulo'],
                     'conteudo': item['meta']['conteudo'],
                     'similarity': item['meta']['similarity'],
-                    'rerank_score': item['score'],
+                    'rerank_score': float(item['score']),
                     'original_rank': item['meta'].get('original_rank'),
                 }
                 for item in reranked
