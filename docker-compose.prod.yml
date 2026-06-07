@@ -18,5 +18,5 @@ services:
       APP_PASSWORD: ${APP_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       RERANK_MODEL: ${RERANK_MODEL:-unicamp-dl/monoptt5-base}
-      RERANK_TOP_K: ${RERANK_TOP_K:-50}
+      RERANK_TOP_K: ${RERANK_TOP_K:-20}
     restart: always

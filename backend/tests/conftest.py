@@ -14,7 +14,7 @@ os.environ['DB_NAME'] = 'meu_vector_db'
 os.environ['DB_PORT'] = '3306'
 os.environ['DB_DIALECT'] = 'mariadb'
 os.environ['RERANK_MODEL'] = 'ms-marco-MiniLM-L-12-v2'
-os.environ['RERANK_TOP_K'] = '50'
+os.environ['RERANK_TOP_K'] = '20'
 
 # 2. Mock heavy ML libraries to keep tests offline and fast
 mock_transformers = MagicMock()

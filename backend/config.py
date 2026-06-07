@@ -19,4 +19,4 @@ APP_PASSWORD = os.getenv('APP_PASSWORD', '')
 JWT_SECRET = os.getenv('JWT_SECRET', 'local_jwt_secret')
 
 RERANK_MODEL = os.getenv('RERANK_MODEL', 'unicamp-dl/monoptt5-base')
-RERANK_TOP_K = int(os.getenv('RERANK_TOP_K', '50'))
+RERANK_TOP_K = int(os.getenv('RERANK_TOP_K', '20'))
