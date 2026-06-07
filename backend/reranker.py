@@ -112,34 +112,41 @@ def rerank(query: str, passages: list[dict], top_n: int = 10) -> list[dict]:
         import torch.nn.functional as F
 
         device = next(ranker.parameters()).device
-        texts = [f"Query: {query} Document: {p['text']} Relevant:" for p in passages]
         
-        # Tokenize batch
-        inputs = tokenizer(texts, padding=True, truncation=True, max_length=512, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-        # Generate output starting with pad token (0)
-        decoder_input_ids = torch.zeros((len(passages), 1), dtype=torch.long, device=device)
-
-        with torch.no_grad():
-            outputs = ranker(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                decoder_input_ids=decoder_input_ids
-            )
+        # Batch execution to prevent Out-Of-Memory (OOM) crashes in resource-constrained environments
+        batch_size = 4
+        all_scores = []
+        
+        for i in range(0, len(passages), batch_size):
+            batch_passages = passages[i:i+batch_size]
+            batch_texts = [f"Query: {query} Document: {p['text']} Relevant:" for p in batch_passages]
             
-        # Get logits of first token
-        next_token_logits = outputs.logits[:, 0, :]
-        
-        # Calculate softmax over true and false logits
-        true_logits = next_token_logits[:, true_token_id]
-        false_logits = next_token_logits[:, false_token_id]
-        
-        # Softmax to get relative probability of "true"
-        scores = torch.softmax(torch.stack([true_logits, false_logits], dim=-1), dim=-1)[:, 0]
-        scores = scores.cpu().numpy()
+            # Tokenize batch
+            inputs = tokenizer(batch_texts, padding=True, truncation=True, max_length=512, return_tensors="pt")
+            inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        for p, score in zip(passages, scores):
+            # Generate output starting with pad token (0)
+            decoder_input_ids = torch.zeros((len(batch_passages), 1), dtype=torch.long, device=device)
+
+            with torch.no_grad():
+                outputs = ranker(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    decoder_input_ids=decoder_input_ids
+                )
+                
+            # Get logits of first token
+            next_token_logits = outputs.logits[:, 0, :]
+            
+            # Calculate softmax over true and false logits
+            true_logits = next_token_logits[:, true_token_id]
+            false_logits = next_token_logits[:, false_token_id]
+            
+            # Softmax to get relative probability of "true"
+            scores = torch.softmax(torch.stack([true_logits, false_logits], dim=-1), dim=-1)[:, 0]
+            all_scores.extend(scores.cpu().tolist())
+
+        for p, score in zip(passages, all_scores):
             p['score'] = float(score)
 
         # Sort descending by score
@@ -155,7 +162,8 @@ def rerank(query: str, passages: list[dict], top_n: int = 10) -> list[dict]:
     else:
         # Sentence-Transformers cross-encoder (PyTorch)
         pairs = [(query, p['text']) for p in passages]
-        scores = ranker.predict(pairs)
+        # Use a small batch size to prevent OOM
+        scores = ranker.predict(pairs, batch_size=4)
 
         # Attach normalized scores (using sigmoid function for logits)
         for p, score in zip(passages, scores):
