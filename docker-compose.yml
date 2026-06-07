@@ -13,7 +13,7 @@ services:
       - ./database.sql:/docker-entrypoint-initdb.d/init.sql
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASS:-root}"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p$$MARIADB_ROOT_PASSWORD"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,11 +25,11 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
       PORT: ${PORT:-3000}
-      DB_HOST: ${DB_HOST:-db}
+      DB_HOST: db
       DB_USER: ${DB_USER:-app_user}
       DB_PASS: ${DB_PASS:-app_password}
       DB_NAME: ${DB_NAME:-meu_vector_db}
-      DB_PORT: ${DB_PORT:-3306}
+      DB_PORT: 3306
       DB_DIALECT: ${DB_DIALECT:-mariadb}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-embedding-2}
