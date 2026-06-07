@@ -23,6 +23,15 @@ def init_ranker(model_name: str):
 
     print(f'[reranker] Initializing/Switching to reranker with model: {model_name}')
 
+    # Clear cache to free memory from previously loaded model in production
+    import sys
+    if 'pytest' not in sys.modules:
+        _model_cache.clear()
+        ranker = None
+        tokenizer = None
+        import gc
+        gc.collect()
+
     if model_name in _model_cache:
         print(f"[reranker] Loading model '{model_name}' from memory cache...")
         cached = _model_cache[model_name]
@@ -44,7 +53,7 @@ def init_ranker(model_name: str):
         print(f"[reranker] Loading T5 model on device: {device}")
         
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        ranker = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+        ranker = AutoModelForSeq2SeqLM.from_pretrained(model_name, low_cpu_mem_usage=True).to(device)
         is_t5 = True
         is_sentence_transformer = False
 
@@ -78,7 +87,15 @@ def init_ranker(model_name: str):
             # Fallback to Sentence-Transformers for custom Hugging Face classification models
             try:
                 from sentence_transformers import CrossEncoder
-                ranker = CrossEncoder(model_name)
+                import torch
+                ranker = CrossEncoder(
+                    model_name,
+                    model_kwargs={
+                        'low_cpu_mem_usage': True,
+                        'torch_dtype': torch.bfloat16,
+                        'trust_remote_code': True
+                    }
+                )
                 is_t5 = False
                 is_sentence_transformer = True
                 print('[reranker] Sentence-Transformers engine initialized.')
