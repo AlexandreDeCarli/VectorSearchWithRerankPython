@@ -36,7 +36,7 @@ services:
       APP_USERNAME: ${APP_USERNAME:-admin}
       APP_PASSWORD: ${APP_PASSWORD:-local_app_password}
       JWT_SECRET: ${JWT_SECRET:-local_jwt_secret}
-      RERANK_MODEL: ${RERANK_MODEL:-ms-marco-MiniLM-L-12-v2}
+      RERANK_MODEL: ${RERANK_MODEL:-unicamp-dl/monoptt5-base}
       RERANK_TOP_K: ${RERANK_TOP_K:-50}
     volumes:
       - ./flashrank_cache:/app/flashrank_cache

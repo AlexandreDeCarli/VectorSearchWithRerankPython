@@ -11,6 +11,7 @@ vi.mock('../utils/api', () => ({
     deleteDocument: vi.fn(),
     deleteAllDocuments: vi.fn(),
     search: vi.fn(),
+    listSearchModels: vi.fn(),
   },
 }));
 
@@ -28,14 +29,18 @@ vi.mock('../components/DocumentForm', () => ({
 describe('Dashboard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (api.listSearchModels as any).mockResolvedValue([
+      { id: 'unicamp-dl/monoptt5-base', name: 'unicamp-dl/monoptt5-base', is_default: true, type: 'T5', language: 'pt', description: 'desc' }
+    ]);
   });
+
 
   it('should render headers and title sections', async () => {
     (api.listDocuments as any).mockResolvedValue([]);
     
     render(<Dashboard onLogout={() => {}} />);
     
-    expect(screen.getByText('VectorScore')).toBeInTheDocument();
+    expect(screen.getByText('VectorSearch + Rerank')).toBeInTheDocument();
     expect(screen.getByText('Logado como Admin')).toBeInTheDocument();
     expect(screen.getByText('Busca por Semelhança (Vetores)')).toBeInTheDocument();
   });
@@ -79,10 +84,12 @@ describe('Dashboard Component', () => {
     fireEvent.click(searchBtn);
 
     await waitFor(() => {
-      expect(api.search).toHaveBeenCalledWith('inteligência artificial', 'COSINE');
-      expect(screen.getByText('Resultado da Busca 1')).toBeInTheDocument();
-      expect(screen.getByText('Exemplo de texto 1')).toBeInTheDocument();
-      expect(screen.getByText('85.2%')).toBeInTheDocument();
+      const searchCallArgs = (api.search as any).mock.calls[0];
+      expect(searchCallArgs[0]).toBe('inteligência artificial');
+      expect(searchCallArgs[1]).toBe('COSINE');
+      expect(screen.getAllByText('Resultado da Busca 1')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Exemplo de texto 1')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('85.2%')[0]).toBeInTheDocument();
     });
   });
 
@@ -107,9 +114,11 @@ describe('Dashboard Component', () => {
     fireEvent.click(searchBtn);
 
     await waitFor(() => {
-      expect(api.search).toHaveBeenCalledWith('outro termo', 'DOT');
-      expect(screen.getByText('Resultado DOT')).toBeInTheDocument();
-      expect(screen.getByText('score = 1.2346')).toBeInTheDocument();
+      const searchCallArgs = (api.search as any).mock.calls[0];
+      expect(searchCallArgs[0]).toBe('outro termo');
+      expect(searchCallArgs[1]).toBe('DOT');
+      expect(screen.getAllByText('Resultado DOT')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('score = 1.2346')[0]).toBeInTheDocument();
     });
   });
 
@@ -134,9 +143,11 @@ describe('Dashboard Component', () => {
     fireEvent.click(searchBtn);
 
     await waitFor(() => {
-      expect(api.search).toHaveBeenCalledWith('outro termo 2', 'EUCLIDEAN');
-      expect(screen.getByText('Resultado EUCLIDEAN')).toBeInTheDocument();
-      expect(screen.getByText('d = 0.3500')).toBeInTheDocument();
+      const searchCallArgs = (api.search as any).mock.calls[0];
+      expect(searchCallArgs[0]).toBe('outro termo 2');
+      expect(searchCallArgs[1]).toBe('EUCLIDEAN');
+      expect(screen.getAllByText('Resultado EUCLIDEAN')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('d = 0.3500')[0]).toBeInTheDocument();
     });
   });
 
@@ -186,8 +197,8 @@ describe('Dashboard Component', () => {
     fireEvent.click(searchBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Documento Teste')).toBeInTheDocument();
-      expect(screen.getByText('Conteudo do documento detalhado')).toBeInTheDocument();
+      expect(screen.getAllByText('Documento Teste')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Conteudo do documento detalhado')[0]).toBeInTheDocument();
     });
 
     // Toggle to Compact
@@ -228,11 +239,12 @@ describe('Dashboard Component', () => {
     fireEvent.click(searchBtn);
 
     // Verify "Ver mais" is displayed
-    const showMoreBtn = await screen.findByRole('button', { name: /Ver mais/i });
-    expect(showMoreBtn).toBeInTheDocument();
+    const showMoreBtns = await screen.findAllByRole('button', { name: /Ver mais/i });
+    expect(showMoreBtns[0]).toBeInTheDocument();
 
     // Click "Ver mais"
-    fireEvent.click(showMoreBtn);
+    fireEvent.click(showMoreBtns[0]);
+
 
     // Verify preview modal is opened and displays complete content
     expect(screen.getByText('Documento Muito Longo', { selector: 'h2' })).toBeInTheDocument();

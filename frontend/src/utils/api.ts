@@ -83,16 +83,24 @@ export const api = {
     return data;
   },
 
-  async search(query: string, metric: 'COSINE' | 'DOT' | 'EUCLIDEAN' = 'COSINE') {
+  async search(query: string, metric: 'COSINE' | 'DOT' | 'EUCLIDEAN' = 'COSINE', model?: string) {
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ query, metric })
+      body: JSON.stringify({ query, metric, model })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro ao realizar busca vetorial');
     return data;
   },
+
+  async listSearchModels() {
+    const res = await fetch('/api/search/models', { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao listar modelos de rerank');
+    return data;
+  },
+
 
   async importDocument(titulo: string, conteudoBase64: string) {
     const res = await fetch('/api/documents/import', {

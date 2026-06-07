@@ -63,11 +63,11 @@ Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
     │
     ├──────────────────────────┬─────────────────────────┐
     ▼                          ▼                         ▼
-┌────────────────────┐  ┌─────────────┐  ┌─────────────────────────────┐
-│ Google Gemini API  │  │  FlashRank  │  │       Banco de Dados        │
-│ gemini-embedding-2 │  │  Ranker     │  │                             │
-│ 768 dimensões      │  │  (ms-marco) │  │  DEV:  MariaDB 11.8 (HNSW)  │
-└────────────────────┘  └─────────────┘  │  PROD: MySQL HeatWave (OCI) │
+┌────────────────────┐  ┌──────────────┐  ┌─────────────────────────────┐
+│ Google Gemini API  │  │ Rerank Engine│  │       Banco de Dados        │
+│ gemini-embedding-2 │  │ Multi-modelo │  │                             │
+│ 768 dimensões      │  │ (T5/ONNX/HF) │  │  DEV:  MariaDB 11.8 (HNSW)  │
+└────────────────────┘  └──────────────┘  │  PROD: MySQL HeatWave (OCI) │
                                          └─────────────────────────────┘
 ```
 
@@ -77,7 +77,7 @@ Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
 |--------|-----------|--------|
 | **Runtime** | [Python 3.11](https://www.python.org) | Ambiente de execução estável e padrão para IA |
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com) | Framework HTTP de alta performance com validação automática de dados |
-| **Reranker** | [FlashRank](https://github.com/PrithivirajDamodaran/FlashRank) | Reranker Cross-Encoder leve e rápido para processamento no servidor |
+| **Reranker** | Hybrid Engine (PyTorch/ONNX) | Suporte nativo a T5 Seq2Seq (monoptt5), FlashRank (ONNX) e Cross-Encoders (HF) |
 | **Frontend** | [React 18](https://react.dev) + [Vite](https://vite.dev) | SPA com tema escuro glassmórfico e exibição de Rerank Score |
 | **Embeddings** | [Google Gemini API](https://ai.google.dev) | Modelo `gemini-embedding-2` gerando vetores de 768 dimensões |
 | **DB Local** | [MariaDB 11.8](https://mariadb.org) | Busca vetorial nativa com índices HNSW acelerados localmente |
@@ -100,10 +100,54 @@ Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
 ### 🔍 Busca Semântica em Duas Fases
 1. **Vector Recall (Fase 1)**: Converte a pesquisa em um vetor e realiza busca de alta velocidade trazendo o top-K candidatos (ajustável via `RERANK_TOP_K`, padrão `50`).
    - Suporta métricas **Cosseno (`COSINE`)**, **Produto Escalar (`DOT`)** e **Euclidiana (`EUCLIDEAN`)**.
-2. **Hybrid Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo configurado em `RERANK_MODEL`:
-   - **FlashRank (ONNX)**: Ativado automaticamente para modelos nativos da biblioteca (como `ms-marco-MultiBERT-L-12` para suporte multilíngue, ou o padrão `ms-marco-MiniLM-L-12-v2`).
-   - **Sentence-Transformers (PyTorch)**: Ativado como fallback automático para qualquer modelo customizado do Hugging Face (por exemplo, modelos de classificação de sequências como **`BAAI/bge-reranker-v2-m3`** ou **`unicamp-dl/mt5-base-mmarco-v2`**).
-   - **Seq2Seq T5 (PyTorch)**: Ativado para modelos baseados em T5 (por exemplo, o excelente modelo em português **`unicamp-dl/monoptt5-base`**). O backend realiza o cálculo de probabilidade do token de geração (detectando automaticamente tokens `Sim`/`Não`, `true`/`false` ou `yes`/`no`) em lote e re-ranqueia os resultados.
+2. **Hybrid Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo configurado em `RERANK_MODEL` (com fallback automático de arquiteturas).
+
+### 🧠 Motores e Modelos de Reranking
+
+O backend do projeto foi arquitetado com um motor híbrido dinâmico que detecta automaticamente a arquitetura do modelo de reranking configurado na variável `RERANK_MODEL` e escolhe o melhor pipeline de processamento:
+
+#### 1. Seq2Seq T5 (Inferência Generativa)
+- **Como funciona**: Modelos baseados em T5 (como o padrão `unicamp-dl/monoptt5-base`) avaliam a relevância de forma generativa. O backend formata o input como `Query: <pergunta> Document: <documento> Relevant:`. O modelo então gera a probabilidade do próximo token (ex: " Sim" ou " Não").
+- **Diferencial**: O backend extrai os logits brutos dos tokens afirmativos/negativos em português (` Sim`/` Não`), inglês (` true`/` false` ou ` yes`/` no`) e calcula a função **Softmax** sobre eles. A pontuação de relevância (`rerank_score`) é a probabilidade do token afirmativo.
+- **Modelos Recomendados**:
+  - `unicamp-dl/monoptt5-base` (Padrão do Projeto - 890MB) — Altíssimo desempenho em português.
+  - `unicamp-dl/monoptt5-large` (3.3GB) — Máxima precisão para português (requer mais memória/GPU).
+  - `castorini/monot5-base-msmarco-10k` (890MB) — Excelente alternativa para inglês.
+- **Requisitos de Hardware**: Médio-Alto (PyTorch). Funciona em CPU, mas se beneficia fortemente de aceleração por GPU (CUDA). Recomenda-se reservar pelo menos 4GB de RAM para o Docker.
+
+#### 2. FlashRank (ONNX Runtime de Alta Velocidade)
+- **Como funciona**: Utiliza modelos de Cross-Encoder convertidos para o formato ONNX. A inferência é feita diretamente no processador (CPU) através de threads C++ otimizadas de forma extremamente leve, sem necessidade de PyTorch ou bibliotecas pesadas de Deep Learning.
+- **Diferencial**: Latência baixíssima (<50ms para lotes normais) e baixíssimo consumo de memória RAM (<150MB no total).
+- **Modelos Recomendados**:
+  - `ms-marco-MiniLM-L-12-v2` (50MB) — Muito rápido, ótimo para testes rápidos em inglês.
+  - `ms-marco-MultiBERT-L-12` (470MB) — Suporte multilíngue leve.
+  - `ce-esci-MiniLM-L12-v2` (50MB) — Ajustado para e-commerce.
+- **Requisitos de Hardware**: Mínimos. Roda em qualquer máquina local.
+
+#### 3. Sentence-Transformers (Classificadores Cross-Encoder PyTorch)
+- **Como funciona**: Fallback para modelos Cross-Encoder tradicionais do Hugging Face. O modelo prevê uma pontuação numérica direta de similaridade (logit) para cada par de pergunta e documento.
+- **Diferencial**: O backend normaliza esses logits aplicando a função **Sigmóide** (`1 / (1 + e^-logit)`), transformando qualquer número real em uma probabilidade elegante de 0.0 a 1.0.
+- **Modelos Recomendados**:
+  - `nreimers/mmarco-mMiniLMv2-L12-H384-v1` (117MB) — Excelente reranker multilíngue de tamanho moderado.
+  - `BAAI/bge-reranker-v2-m3` (1.1GB) — Estado da arte em buscas multilíngues, mas pesado.
+- **Requisitos de Hardware**: Baixo a Médio (dependendo do tamanho do modelo).
+
+---
+
+### 📊 Tabela Comparativa de Modelos de Trabalho
+
+| Modelo | Tipo/Motor | Tamanho | Idioma Principal | Velocidade | Consumo de RAM (Aprox.) |
+|:---|:---|:---|:---|:---|:---|
+| **`unicamp-dl/monoptt5-base`** (Padrão) | Seq2Seq T5 (PyTorch) | ~890 MB | Português | Média | ~1.5 GB |
+| **`nreimers/mmarco-mMiniLMv2-L12-H384-v1`** | Cross-Encoder (PyTorch) | ~117 MB | Multilíngue | Alta | ~400 MB |
+| **`ms-marco-MiniLM-L-12-v2`** | FlashRank (ONNX) | ~50 MB | Inglês | Altíssima | ~100 MB |
+| **`ms-marco-MultiBERT-L-12`** | FlashRank (ONNX) | ~470 MB | Multilíngue | Alta | ~500 MB |
+| **`BAAI/bge-reranker-v2-m3`** | Cross-Encoder (PyTorch) | ~1.1 GB | Multilíngue | Baixa-Média | ~2.5 GB |
+
+> [!CAUTION]
+> Ao utilizar modelos pesados como `BAAI/bge-reranker-v2-m3` ou `unicamp-dl/monoptt5-base` dentro de containers Docker, garanta que o Docker Desktop (ou daemon de execução) possua limites de memória RAM adequados (mínimo de 4GB recomendados). Caso contrário, o container do backend pode sofrer crash silencioso com código **OOM `137`**.
+
+---
 
 ### 📥 Importação em Lote (Batch Import)
 - Importação de JSON contendo múltiplos arquivos estruturados em base64.
@@ -179,7 +223,7 @@ APP_PASSWORD=local_app_password
 JWT_SECRET=supersecretlocaljwtkey123!
 ADMIN_EMAIL=admin@example.com
 MAX_UPLOAD_SIZE_MB=10
-RERANK_MODEL=ms-marco-MiniLM-L-12-v2
+RERANK_MODEL=unicamp-dl/monoptt5-base
 RERANK_TOP_K=50
 ```
 

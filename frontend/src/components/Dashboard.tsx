@@ -13,6 +13,15 @@ interface DocumentMeta {
   created_at: string;
 }
 
+interface SearchModel {
+  id: string;
+  name: string;
+  language: string;
+  type: string;
+  description: string;
+  is_default: boolean;
+}
+
 interface SearchResult {
   id: number;
   titulo: string;
@@ -27,9 +36,10 @@ interface ResultItemProps {
   viewMode: 'compact' | 'detailed';
   onViewDetails: (doc: SearchResult) => void;
   formatScore: (score: number) => string;
+  rankShift?: number | null;
 }
 
-const ResultItem: React.FC<ResultItemProps> = ({ res, metric, viewMode, onViewDetails, formatScore }) => {
+const ResultItem: React.FC<ResultItemProps> = ({ res, metric, viewMode, onViewDetails, formatScore, rankShift }) => {
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const [isTruncated, setIsTruncated] = useState(false);
 
@@ -66,8 +76,18 @@ const ResultItem: React.FC<ResultItemProps> = ({ res, metric, viewMode, onViewDe
       <div className="result-header">
         <h4>{res.titulo}</h4>
         <div className="score-badges">
+          {rankShift != null && rankShift !== 0 && (
+            <span className={`rank-shift-badge ${rankShift > 0 ? 'shift-up' : 'shift-down'}`} title={`Mudança de rank: ${rankShift > 0 ? '+' : ''}${rankShift}`}>
+              {rankShift > 0 ? `▲ +${rankShift}` : `▼ ${rankShift}`}
+            </span>
+          )}
+          {rankShift === 0 && (
+            <span className="rank-shift-badge shift-none" title="Sem mudança de rank">
+              •
+            </span>
+          )}
           {res.rerank_score != null && (
-            <span className="score-badge score-rerank" title="FlashRank Rerank Score">
+            <span className="score-badge score-rerank" title="Rerank Score">
               🏆 {(res.rerank_score * 100).toFixed(1)}%
             </span>
           )}
@@ -96,7 +116,12 @@ const ResultItem: React.FC<ResultItemProps> = ({ res, metric, viewMode, onViewDe
 
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [models, setModels] = useState<SearchModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<{
+    original: SearchResult[];
+    reranked: SearchResult[];
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [metric, setMetric] = useState<'COSINE' | 'DOT' | 'EUCLIDEAN'>('COSINE');
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +151,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
   useEffect(() => {
     loadDocuments();
+    loadModels();
   }, []);
 
   const loadDocuments = async () => {
@@ -141,6 +167,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     }
   };
 
+  const loadModels = async () => {
+    if (typeof api.listSearchModels !== 'function') return;
+    try {
+      const availableModels = await api.listSearchModels();
+      setModels(availableModels);
+      const defaultModel = availableModels.find((m: SearchModel) => m.is_default);
+      if (defaultModel) {
+        setSelectedModel(defaultModel.id);
+      } else if (availableModels.length > 0) {
+        setSelectedModel(availableModels[0].id);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar modelos de rerank:', err);
+    }
+  };
+
   const handleDelete = async (id: number, title: string) => {
     if (!confirm(`Deseja realmente excluir o documento "${title}"?`)) return;
     setError(null);
@@ -148,7 +190,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
       await api.deleteDocument(id);
       loadDocuments();
       // Remove from search results if present
-      setSearchResults(prev => prev.filter(res => res.id !== id));
+      setSearchResults(prev => {
+        if (!prev) return null;
+        return {
+          original: prev.original.filter(res => res.id !== id),
+          reranked: prev.reranked.filter(res => res.id !== id),
+        };
+      });
     } catch (err: any) {
       setError(err.message || 'Erro ao excluir documento');
     }
@@ -160,7 +208,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     try {
       await api.deleteAllDocuments();
       loadDocuments();
-      setSearchResults([]); // Clear search results as well
+      setSearchResults(null); // Clear search results as well
     } catch (err: any) {
       setError(err.message || 'Erro ao excluir todos os documentos');
     }
@@ -173,8 +221,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     setSearching(true);
     setError(null);
     try {
-      const results = await api.search(searchQuery, metric);
-      setSearchResults(results);
+      const data = await api.search(searchQuery, metric, selectedModel || undefined);
+      if (Array.isArray(data)) {
+        setSearchResults({
+          original: data,
+          reranked: data
+        });
+      } else {
+        setSearchResults(data);
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao buscar vetores');
     } finally {
@@ -325,40 +380,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             </div>
 
             <div className="glass-card search-panel">
-              {/* Vector Metric Selector controls */}
-              <div className="metric-selector-group">
-                <span className="metric-selector-label">Métrica de Distância Vetorial</span>
-                <div className="metric-options">
-                  <button
-                    type="button"
-                    className={`btn metric-option-btn ${metric === 'COSINE' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setMetric('COSINE')}
-                    disabled={searching}
-                  >
-                    Cosseno
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn metric-option-btn ${metric === 'DOT' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setMetric('DOT')}
-                    disabled={searching}
-                  >
-                    Produto Escalar
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn metric-option-btn ${metric === 'EUCLIDEAN' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setMetric('EUCLIDEAN')}
-                    disabled={searching}
-                  >
-                    Euclidiana
-                  </button>
+              {/* Controls Row */}
+              <div className="search-controls-row">
+                {/* Vector Metric Selector controls */}
+                <div className="metric-selector-group">
+                  <span className="metric-selector-label">Métrica de Distância Vetorial</span>
+                  <div className="metric-options">
+                    <button
+                      type="button"
+                      className={`btn metric-option-btn ${metric === 'COSINE' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setMetric('COSINE')}
+                      disabled={searching}
+                    >
+                      Cosseno
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn metric-option-btn ${metric === 'DOT' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setMetric('DOT')}
+                      disabled={searching}
+                    >
+                      Produto Escalar
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn metric-option-btn ${metric === 'EUCLIDEAN' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setMetric('EUCLIDEAN')}
+                      disabled={searching}
+                    >
+                      Euclidiana
+                    </button>
+                  </div>
+                  <p className="metric-description">
+                    {metric === 'COSINE' && '🔍 COSSENO: Busca semântica e embeddings de texto normalizados (1 - distância).'}
+                    {metric === 'DOT' && '⚡ PRODUTO ESCALAR: Produto escalar direto para embeddings não normalizados.'}
+                    {metric === 'EUCLIDEAN' && '📐 EUCLIDIANA: Distância geométrica direta entre vetores (menor distância é melhor).'}
+                  </p>
                 </div>
-                <p className="metric-description">
-                  {metric === 'COSINE' && '🔍 COSSENO: Busca semântica e embeddings de texto normalizados (1 - distância).'}
-                  {metric === 'DOT' && '⚡ PRODUTO ESCALAR: Produto escalar direto para embeddings não normalizados.'}
-                  {metric === 'EUCLIDEAN' && '📐 EUCLIDIANA: Distância geométrica direta entre vetores (menor distância é melhor).'}
-                </p>
+
+                {/* Model Selector controls */}
+                <div className="model-selector-group">
+                  <span className="model-selector-label">Modelo de Re-ranqueamento (Fase 2)</span>
+                  <select
+                    className="model-select-control"
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={searching || models.length === 0}
+                  >
+                    {models.length === 0 ? (
+                      <option value="">Carregando modelos...</option>
+                    ) : (
+                      models.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} {m.is_default ? ' (Padrão)' : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="model-description">
+                    {(() => {
+                      const m = models.find((x) => x.id === selectedModel);
+                      return m ? `🧠 ${m.type} (${m.language}): ${m.description}` : 'Selecione um modelo de reranking.';
+                    })()}
+                  </p>
+                </div>
               </div>
 
               <form onSubmit={handleSearchSubmit} className="search-box">
@@ -387,13 +472,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
               </form>
 
               <div className="search-results-container">
-                {searchResults.length > 0 && (
-                  <div className={`results-list ${viewMode === 'compact' ? 'results-list-compact' : 'results-list-detailed'}`}>
+                {/* Onboarding Empty State */}
+                {!searchResults && !searching && (
+                  <div className="search-empty-state">
+                    <div className="empty-state-icon">🔍</div>
+                    <h3>Pronto para Pesquisar</h3>
+                    <p>Digite um termo e selecione o modelo para comparar a busca vetorial bruta contra o re-ranqueamento em tempo real.</p>
+                  </div>
+                )}
+
+                {searchResults && (searchResults.original.length > 0 || searchResults.reranked.length > 0) && (
+                  <div className={`results-comparison-layout ${viewMode === 'compact' ? 'results-list-compact' : 'results-list-detailed'} ${searching ? 'loading-results' : ''}`}>
                     <div className="results-header-row">
                       <div className="doc-meta results-meta">
                         {metric === 'COSINE' && 'Métrica: Cosseno'}
                         {metric === 'DOT' && 'Métrica: Produto Escalar'}
                         {metric === 'EUCLIDEAN' && 'Métrica: Distância Euclidiana'}
+                        {searchResults.reranked.length > 0 && ` | Rerank: ${models.find(x => x.id === selectedModel)?.name || selectedModel}`}
                       </div>
                       <div className="view-mode-selector">
                         <button
@@ -414,20 +509,80 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         </button>
                       </div>
                     </div>
-                    {searchResults.map((res) => (
-                      <ResultItem
-                        key={res.id}
-                        res={res}
-                        metric={metric}
-                        viewMode={viewMode}
-                        onViewDetails={setActiveDetailDoc}
-                        formatScore={formatScore}
-                      />
-                    ))}
+
+                    <div className="results-comparison-grid">
+                      {/* Left Column: Original Results */}
+                      <div className="results-column original-column">
+                        <div className="results-column-title">
+                          <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', display: 'inline-block', verticalAlign: 'middle', opacity: 0.8 }}>
+                              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                              <path d="M3 5V19A9 3 0 0 0 21 19V5"></path>
+                              <path d="M3 12A9 3 0 0 0 21 12"></path>
+                            </svg>
+                            Recall Original (Sem Rerank)
+                          </span>
+                          <span className="results-count-badge">{searchResults.original.length} docs</span>
+                        </div>
+                        <div className="results-list">
+                          {searchResults.original.map((res) => (
+                            <ResultItem
+                              key={`orig-${res.id}`}
+                              res={res}
+                              metric={metric}
+                              viewMode={viewMode}
+                              onViewDetails={setActiveDetailDoc}
+                              formatScore={formatScore}
+                            />
+                          ))}
+                          {searchResults.original.length === 0 && (
+                            <div className="no-results">Nenhum resultado retornado.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right Column: Reranked Results */}
+                      <div className="results-column reranked-column">
+                        <div className="results-column-title">
+                          <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', display: 'inline-block', verticalAlign: 'middle', opacity: 0.8 }}>
+                              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                              <path d="M4 22h16"></path>
+                              <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"></path>
+                              <path d="M12 2a5 5 0 0 0-5 5v3c0 2.2 1.8 4 4 4h2c2.2 0 4-1.8 4-4V7a5 5 0 0 0-5-5z"></path>
+                            </svg>
+                            Reordenado (Com Rerank)
+                          </span>
+                          <span className="results-count-badge">{searchResults.reranked.length} docs</span>
+                        </div>
+                        <div className="results-list">
+                          {searchResults.reranked.map((res, newIndex) => {
+                            const origIndex = searchResults.original.findIndex(x => x.id === res.id);
+                            const shift = origIndex !== -1 ? origIndex - newIndex : null;
+
+                            return (
+                              <ResultItem
+                                key={`rerank-${res.id}`}
+                                res={res}
+                                metric={metric}
+                                viewMode={viewMode}
+                                onViewDetails={setActiveDetailDoc}
+                                formatScore={formatScore}
+                                rankShift={shift}
+                              />
+                            );
+                          })}
+                          {searchResults.reranked.length === 0 && (
+                            <div className="no-results">Nenhum resultado retornado.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {searchResults.length === 0 && searchQuery && !searching && (
+                {searchResults && searchResults.original.length === 0 && searchResults.reranked.length === 0 && searchQuery && !searching && (
                   <div className="no-results">
                     Nenhum resultado retornado para a busca.
                   </div>

@@ -1051,4 +1051,241 @@ textarea.form-control {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* Search Controls Row layout */
+.search-controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* Model Selector styling */
+.model-selector-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-selector-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.model-select-control {
+  width: 100%;
+  padding: 11px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.95rem;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  height: 42px; /* matches metric buttons height */
+}
+
+.model-select-control:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.model-select-control:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.model-select-control option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.model-description {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  min-height: 1.2rem;
+  line-height: 1.4;
+}
+
+/* Hover state for general inputs */
+.form-control:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Hover state for result cards */
+.result-item:hover {
+  border-color: rgba(139, 92, 246, 0.3) !important;
+  background: rgba(139, 92, 246, 0.02) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* Disabled buttons */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Onboarding Empty State */
+.search-empty-state {
+  text-align: center;
+  padding: 60px 40px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px dashed var(--border-glass);
+  border-radius: 12px;
+  max-width: 520px;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.search-empty-state .empty-state-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.25));
+}
+
+.search-empty-state h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.search-empty-state p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 42ch;
+  text-wrap: pretty;
+}
+
+/* Side-by-side comparison layout */
+.results-comparison-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.results-comparison-layout.loading-results {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: blur(1px);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.results-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.results-column {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 18px;
+  transition: var(--transition-smooth);
+}
+
+/* Highlight Rerank Column as Premium */
+.results-column.reranked-column {
+  background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.03), transparent 60%), rgba(255, 255, 255, 0.01);
+  border-color: rgba(139, 92, 246, 0.12);
+}
+
+.results-column-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 10px;
+  margin-bottom: 5px;
+}
+
+.results-column-title span {
+  display: flex;
+  align-items: center;
+}
+
+.results-count-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+}
+
+/* Rank shifting indicators */
+.rank-shift-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--font-family);
+  border: 1px solid transparent;
+}
+
+.rank-shift-badge.shift-up {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.rank-shift-badge.shift-down {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.rank-shift-badge.shift-none {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  border-color: var(--border-glass);
+}
+
+/* Score badge specifically for Rerank */
+.score-rerank {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Responsive adjustment for comparison columns */
+@media (max-width: 900px) {
+  .search-controls-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .results-comparison-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+
+
 

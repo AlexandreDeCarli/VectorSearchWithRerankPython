@@ -9,10 +9,31 @@ true_token_id: int = 0
 false_token_id: int = 0
 
 
+# Cache dictionary to store loaded model configurations
+_model_cache: dict[str, dict[str, Any]] = {}
+active_model_name: str = ""
+
+
 def init_ranker(model_name: str):
     """Initialize the reranker with either FlashRank, Sentence-Transformers, or Seq2Seq T5."""
-    global ranker, tokenizer, is_sentence_transformer, is_t5, true_token_id, false_token_id
-    print(f'[reranker] Initializing reranker with model: {model_name}')
+    global ranker, tokenizer, is_sentence_transformer, is_t5, true_token_id, false_token_id, active_model_name
+    
+    if active_model_name == model_name and ranker is not None:
+        return
+
+    print(f'[reranker] Initializing/Switching to reranker with model: {model_name}')
+
+    if model_name in _model_cache:
+        print(f"[reranker] Loading model '{model_name}' from memory cache...")
+        cached = _model_cache[model_name]
+        ranker = cached['ranker']
+        tokenizer = cached.get('tokenizer')
+        is_sentence_transformer = cached['is_sentence_transformer']
+        is_t5 = cached['is_t5']
+        true_token_id = cached.get('true_token_id', 0)
+        false_token_id = cached.get('false_token_id', 0)
+        active_model_name = model_name
+        return
 
     # Check if this is a T5 Seq2Seq model
     if 't5' in model_name.lower():
@@ -39,34 +60,45 @@ def init_ranker(model_name: str):
                 false_token_id = ids[0]
                 break
         print(f"[reranker] T5 Engine initialized. Target tokens - True: {true_token_id}, False: {false_token_id}")
-        return
-
-    # Check if the model is natively supported in FlashRank's registry
-    try:
-        from flashrank.Ranker import model_file_map
-        is_native_flashrank = model_name in model_file_map
-    except Exception:
-        is_native_flashrank = False
-
-    if is_native_flashrank:
-        from flashrank import Ranker
-        ranker = Ranker(model_name=model_name, cache_dir="/app/flashrank_cache")
-        is_t5 = False
-        is_sentence_transformer = False
-        print('[reranker] FlashRank engine initialized.')
     else:
-        # Fallback to Sentence-Transformers for custom Hugging Face classification models
+        # Check if the model is natively supported in FlashRank's registry
         try:
-            from sentence_transformers import CrossEncoder
-            ranker = CrossEncoder(model_name)
+            from flashrank.Ranker import model_file_map
+            is_native_flashrank = model_name in model_file_map
+        except Exception:
+            is_native_flashrank = False
+
+        if is_native_flashrank:
+            from flashrank import Ranker
+            ranker = Ranker(model_name=model_name, cache_dir="/app/flashrank_cache")
             is_t5 = False
-            is_sentence_transformer = True
-            print('[reranker] Sentence-Transformers engine initialized.')
-        except ImportError:
-            raise ImportError(
-                f"Model '{model_name}' requires sentence-transformers. "
-                "Please make sure 'sentence-transformers' is installed in requirements.txt."
-            )
+            is_sentence_transformer = False
+            print('[reranker] FlashRank engine initialized.')
+        else:
+            # Fallback to Sentence-Transformers for custom Hugging Face classification models
+            try:
+                from sentence_transformers import CrossEncoder
+                ranker = CrossEncoder(model_name)
+                is_t5 = False
+                is_sentence_transformer = True
+                print('[reranker] Sentence-Transformers engine initialized.')
+            except ImportError:
+                raise ImportError(
+                    f"Model '{model_name}' requires sentence-transformers. "
+                    "Please make sure 'sentence-transformers' is installed in requirements.txt."
+                )
+
+    # Cache the initialized model
+    _model_cache[model_name] = {
+        'ranker': ranker,
+        'tokenizer': tokenizer,
+        'is_sentence_transformer': is_sentence_transformer,
+        'is_t5': is_t5,
+        'true_token_id': true_token_id,
+        'false_token_id': false_token_id
+    }
+    active_model_name = model_name
+
 
 
 def rerank(query: str, passages: list[dict], top_n: int = 10) -> list[dict]:

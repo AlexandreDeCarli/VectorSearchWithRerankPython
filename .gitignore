@@ -34,3 +34,7 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Caches and Tool metadata
+huggingface_cache/
+.impeccable/
