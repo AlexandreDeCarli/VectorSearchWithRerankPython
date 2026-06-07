@@ -102,7 +102,8 @@ Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
    - Suporta métricas **Cosseno (`COSINE`)**, **Produto Escalar (`DOT`)** e **Euclidiana (`EUCLIDEAN`)**.
 2. **Hybrid Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo configurado em `RERANK_MODEL`:
    - **FlashRank (ONNX)**: Ativado automaticamente para modelos nativos da biblioteca (como `ms-marco-MultiBERT-L-12` para suporte multilíngue, ou o padrão `ms-marco-MiniLM-L-12-v2`).
-   - **Sentence-Transformers (PyTorch)**: Ativado como fallback automático para qualquer modelo customizado do Hugging Face (por exemplo, modelos de alta precisão em português/multilíngues como **`BAAI/bge-reranker-v2-m3`** ou **`unicamp-dl/mt5-base-mmarco-v2`**). A resposta final é ordenada de forma ultra-precisa retornando o top-N (padrão `10`).
+   - **Sentence-Transformers (PyTorch)**: Ativado como fallback automático para qualquer modelo customizado do Hugging Face (por exemplo, modelos de classificação de sequências como **`BAAI/bge-reranker-v2-m3`** ou **`unicamp-dl/mt5-base-mmarco-v2`**).
+   - **Seq2Seq T5 (PyTorch)**: Ativado para modelos baseados em T5 (por exemplo, o excelente modelo em português **`unicamp-dl/monoptt5-base`**). O backend realiza o cálculo de probabilidade do token de geração (detectando automaticamente tokens `Sim`/`Não`, `true`/`false` ou `yes`/`no`) em lote e re-ranqueia os resultados.
 
 ### 📥 Importação em Lote (Batch Import)
 - Importação de JSON contendo múltiplos arquivos estruturados em base64.
