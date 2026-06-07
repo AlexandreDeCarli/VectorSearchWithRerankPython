@@ -142,10 +142,14 @@ O backend do projeto foi arquitetado com um motor híbrido dinâmico que detecta
 | **`nreimers/mmarco-mMiniLMv2-L12-H384-v1`** | Cross-Encoder (PyTorch) | ~117 MB | Multilíngue | Alta | ~400 MB |
 | **`ms-marco-MiniLM-L-12-v2`** | FlashRank (ONNX) | ~50 MB | Inglês | Altíssima | ~100 MB |
 | **`ms-marco-MultiBERT-L-12`** | FlashRank (ONNX) | ~470 MB | Multilíngue | Alta | ~500 MB |
-| **`BAAI/bge-reranker-v2-m3`** | Cross-Encoder (PyTorch) | ~1.1 GB | Multilíngue | Baixa-Média | ~2.5 GB |
+| **`BAAI/bge-reranker-v2-m3`** | Cross-Encoder (PyTorch) | ~2.24 GB | Multilíngue | Baixa-Média | ~2.5 GB |
 
 > [!CAUTION]
-> Ao utilizar modelos pesados como `BAAI/bge-reranker-v2-m3` ou `unicamp-dl/monoptt5-base` dentro de containers Docker, garanta que o Docker Desktop (ou daemon de execução) possua limites de memória RAM adequados (mínimo de 4GB recomendados). Caso contrário, o container do backend pode sofrer crash silencioso com código **OOM `137`**.
+> Ao utilizar modelos pesados como `BAAI/bge-reranker-v2-m3` ou `unicamp-dl/monoptt5-base` dentro de containers Docker, garanta que o Docker Desktop (ou daemon de execução) possua limites de memória RAM adequados (mínimo de **4 GB** recomendados, idealmente **6-8 GB** se houver outros containers ativos em paralelo). Caso contrário, o container do backend sofrerá crash silencioso com código **OOM `137`**.
+
+> [!IMPORTANT]
+> **Aceleração por CPU & Precisão:**
+> Para garantir alto desempenho, o backend carrega os modelos PyTorch em **`float32`** (precisão nativa) no CPU. Embora `bfloat16` reduza o consumo de RAM, a maioria das CPUs virtualizadas no macOS/Docker não possui instruções de hardware nativas para bfloat16, o que força o PyTorch a usar emulação lenta de software (`BLAS gemm`), travando a CPU do host. O carregamento em `float32` nativo roda em frações de segundos, mas exige o limite mínimo de RAM no Docker especificado acima.
 
 ---
 
