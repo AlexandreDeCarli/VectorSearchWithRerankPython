@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mariadb:11.8
+    container_name: vector_db_python
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: meu_vector_db
+      MARIADB_USER: app_user
+      MARIADB_PASSWORD: app_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: vector_app_python
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_USER: app_user
+      DB_PASS: app_password
+      DB_NAME: meu_vector_db
+      DB_DIALECT: mariadb
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-embedding-2
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-local_app_password}
+      JWT_SECRET: ${JWT_SECRET:-local_jwt_secret}
+      RERANK_MODEL: ${RERANK_MODEL:-ms-marco-MiniLM-L-12-v2}
+      RERANK_TOP_K: ${RERANK_TOP_K:-50}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
