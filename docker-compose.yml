@@ -40,6 +40,7 @@ services:
       RERANK_TOP_K: ${RERANK_TOP_K:-50}
     volumes:
       - ./flashrank_cache:/app/flashrank_cache
+      - ./huggingface_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy

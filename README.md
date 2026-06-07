@@ -100,7 +100,9 @@ Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
 ### 🔍 Busca Semântica em Duas Fases
 1. **Vector Recall (Fase 1)**: Converte a pesquisa em um vetor e realiza busca de alta velocidade trazendo o top-K candidatos (ajustável via `RERANK_TOP_K`, padrão `50`).
    - Suporta métricas **Cosseno (`COSINE`)**, **Produto Escalar (`DOT`)** e **Euclidiana (`EUCLIDEAN`)**.
-2. **FlashRank Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo cross-encoder leve `ms-marco-MiniLM-L-12-v2`. A resposta final é ordenada de forma ultra-precisa retornando o top-N (padrão `10`).
+2. **Hybrid Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo configurado em `RERANK_MODEL`:
+   - **FlashRank (ONNX)**: Ativado automaticamente para modelos nativos da biblioteca (como `ms-marco-MultiBERT-L-12` para suporte multilíngue, ou o padrão `ms-marco-MiniLM-L-12-v2`).
+   - **Sentence-Transformers (PyTorch)**: Ativado como fallback automático para qualquer modelo customizado do Hugging Face (por exemplo, modelos de alta precisão em português/multilíngues como **`BAAI/bge-reranker-v2-m3`** ou **`unicamp-dl/mt5-base-mmarco-v2`**). A resposta final é ordenada de forma ultra-precisa retornando o top-N (padrão `10`).
 
 ### 📥 Importação em Lote (Batch Import)
 - Importação de JSON contendo múltiplos arquivos estruturados em base64.
