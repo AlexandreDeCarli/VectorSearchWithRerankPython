@@ -9,7 +9,7 @@ def init_ranker(model_name: str):
     """Initialize the FlashRank reranker with the specified model."""
     global ranker
     print(f'[reranker] Initializing FlashRank with model: {model_name}')
-    ranker = Ranker(model_name=model_name)
+    ranker = Ranker(model_name=model_name, cache_dir="/app/flashrank_cache")
     print('[reranker] FlashRank initialized successfully.')
 
 

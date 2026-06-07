@@ -38,6 +38,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local_jwt_secret}
       RERANK_MODEL: ${RERANK_MODEL:-ms-marco-MiniLM-L-12-v2}
       RERANK_TOP_K: ${RERANK_TOP_K:-50}
+    volumes:
+      - ./flashrank_cache:/app/flashrank_cache
     depends_on:
       db:
         condition: service_healthy
