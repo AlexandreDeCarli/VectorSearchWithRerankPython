@@ -6,7 +6,7 @@ services:
     container_name: vector_app_python_prod
 
     environment:
-      PORT: 3000
+      PORT: ${PORT:-3000}
       DB_HOST: ${DB_HOST}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
