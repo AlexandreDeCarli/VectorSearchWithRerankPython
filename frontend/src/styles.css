@@ -558,16 +558,34 @@ textarea.form-control {
 .result-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
 .result-header h4 {
+  margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.score-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.8rem;
@@ -1247,6 +1265,7 @@ textarea.form-control {
   gap: 4px;
   font-family: var(--font-family);
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .rank-shift-badge.shift-up {
