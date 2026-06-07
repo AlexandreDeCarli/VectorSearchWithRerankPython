@@ -1,164 +1,281 @@
 # VectorSearch with Rerank (Python)
 
-Sistema de busca vetorial com **reranking via FlashRank**, construído com **FastAPI** (Python) e frontend **React + TypeScript**.
+<div align="center">
 
-## ✨ Funcionalidades
+**Busca Semântica por Vetores com Reranking via FlashRank**
 
-- 📄 **CRUD de Documentos** — Criar, editar, excluir e listar documentos com embeddings vetoriais
-- 📥 **Importação em Lote** — Upload de JSON com documentos em base64 com detecção de duplicatas
-- 🔍 **Busca Vetorial** — Pesquisa por similaridade usando embeddings do Google Gemini (768 dimensões)
-- 🏆 **Reranking com FlashRank** — Re-ordenação dos resultados usando cross-encoder para maior precisão
-- 🔐 **Autenticação JWT** — Login seguro com tokens Bearer
-- 🗄️ **Multi-Dialect SQL** — Suporte a MariaDB 11.7+ e MySQL HeatWave (OCI)
-- 🔄 **Migrations Automáticas** — Sistema de migrations SQL executado no startup
+[![Python](https://img.shields.io/badge/runtime-Python_3.11-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/frontend-React_18-61dafb?logo=react&logoColor=white)](https://react.dev)
+[![MariaDB](https://img.shields.io/badge/dev_db-MariaDB_11.8-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
+[![MySQL](https://img.shields.io/badge/prod_db-MySQL_HeatWave-4479A1?logo=mysql&logoColor=white)](https://www.oracle.com/mysql/heatwave/)
+[![FlashRank](https://img.shields.io/badge/rerank-FlashRank_0.2-FF6F00?logo=lightning)](https://github.com/PrithivirajDamodaran/FlashRank)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## 🏗️ Arquitetura
+</div>
+
+---
+
+## O que é?
+
+**VectorSearch with Rerank (Python)** é uma aplicação full-stack de **busca semântica avançada** estruturada em **duas fases** (Retrieval-Augmented Generation / RAG ready). 
+
+Diferente de sistemas de busca vetorial simples, este projeto introduz um estágio secundário de **re-ranqueamento com Cross-Encoder (FlashRank)**. Isso resolve as limitações conceituais de similaridade por cosseno pura (que apenas compara embeddings distantes) ao re-avaliar o contexto semântico real entre a pergunta do usuário e o conteúdo do documento.
+
+### Exemplo prático da Busca em Duas Fases
+
+Ao cadastrar 3 documentos:
+1. 📄 *"Como programar redes neurais e IA usando Python"*
+2. 📄 *"Guia técnico sobre baterias de carros elétricos"*
+3. 📄 *"Receita tradicional de pão de queijo caseiro"*
+
+Pesquisando por: **"criar algoritmos de inteligência artificial"**
 
 ```
-┌─────────────────┐     ┌──────────────────────────────────────────┐
-│   React (Vite)  │────▶│  FastAPI (Python 3.11+)                  │
-│   Frontend      │     │                                          │
-│                 │     │  ┌─────────┐  ┌──────────┐  ┌─────────┐ │
-│  • Dashboard    │     │  │ Gemini  │  │ MariaDB/ │  │FlashRank│ │
-│  • Busca        │     │  │Embedding│  │ HeatWave │  │Reranker │ │
-│  • Import       │     │  └─────────┘  └──────────┘  └─────────┘ │
-└─────────────────┘     └──────────────────────────────────────────┘
+Fase 1: Vector Recall (Similaridade de Cosseno no Banco)
+ ├── 🥇 "redes neurais..." ──▶ 86.4% de similaridade
+ ├── 🥈 "baterias..."      ──▶ 41.2% de similaridade
+ └── 🥉 "pão de queijo..." ──▶ 14.8% de similaridade
+
+Fase 2: FlashRank Reranking (Re-ordenação Contextual Cross-Encoder)
+ ├── 🏆 redes neurais... ──▶ 98.7% de relevância (Pontuação final ajustada)
+ └── Outros documentos são filtrados/reordenados com base no score semântico real
 ```
 
-### Pipeline de Busca (Duas Fases)
+---
 
-1. **Vector Recall** — Busca top-K candidatos (K=50) via similaridade vetorial no banco
-2. **FlashRank Reranking** — Re-ordena com cross-encoder, retorna top-N (N=10)
+## Arquitetura
 
-## 🚀 Quick Start
+```
+┌────────────────────────────────────────────────────────┐
+│               Docker Container (Python)                │
+│                                                        │
+│   ┌──────────────────┐     ┌────────────────────────┐  │
+│   │  React Frontend  │     │    FastAPI Backend     │  │
+│   │  (SPA estática)  │ ──▶ │  REST API + JWT Auth   │  │
+│   └──────────────────┘     └───────────┬────────────┘  │
+│                                        │               │
+│   ┌────────────────────────────────────┘               │
+│   ├─▶ backend/sql_dialect.py (Abstração DB)            │
+│   ├─▶ backend/migrate.py (Migrations automáticas)      │
+│   └─▶ backend/reranker.py (FlashRank Cross-Encoder)     │
+└────────────────────────────────────────────────────────┘
+    │
+    ├──────────────────────────┬─────────────────────────┐
+    ▼                          ▼                         ▼
+┌────────────────────┐  ┌─────────────┐  ┌─────────────────────────────┐
+│ Google Gemini API  │  │  FlashRank  │  │       Banco de Dados        │
+│ gemini-embedding-2 │  │  Ranker     │  │                             │
+│ 768 dimensões      │  │  (ms-marco) │  │  DEV:  MariaDB 11.8 (HNSW)  │
+└────────────────────┘  └─────────────┘  │  PROD: MySQL HeatWave (OCI) │
+                                         └─────────────────────────────┘
+```
 
-### Pré-requisitos
+### Stack Tecnológico
 
-- Python 3.11+
-- Node.js 18+ (para build do frontend)
-- MariaDB 11.7+ ou MySQL HeatWave
-- Chave de API do Google Gemini
+| Camada | Tecnologia | Função |
+|--------|-----------|--------|
+| **Runtime** | [Python 3.11](https://www.python.org) | Ambiente de execução estável e padrão para IA |
+| **Backend** | [FastAPI](https://fastapi.tiangolo.com) | Framework HTTP de alta performance com validação automática de dados |
+| **Reranker** | [FlashRank](https://github.com/PrithivirajDamodaran/FlashRank) | Reranker Cross-Encoder leve e rápido para processamento no servidor |
+| **Frontend** | [React 18](https://react.dev) + [Vite](https://vite.dev) | SPA com tema escuro glassmórfico e exibição de Rerank Score |
+| **Embeddings** | [Google Gemini API](https://ai.google.dev) | Modelo `gemini-embedding-2` gerando vetores de 768 dimensões |
+| **DB Local** | [MariaDB 11.8](https://mariadb.org) | Busca vetorial nativa com índices HNSW acelerados localmente |
+| **DB Produção** | [MySQL HeatWave](https://www.oracle.com/mysql/heatwave/) | Busca vetorial corporativa escalável na Oracle Cloud (OCI) |
+| **Autenticação** | JWT (HS256) | Autenticação de rotas protegidas usando `python-jose` |
 
-### Setup Local
+---
+
+## Funcionalidades
+
+### 🔐 Autenticação
+- Login administrativo configurado via variáveis de ambiente.
+- Sessão stateless segura por Bearer Token JWT.
+- Proteção centralizada via injeção de dependências do FastAPI (`Depends(get_current_user)`).
+
+### 📄 CRUD de Documentos
+- Gerenciamento completo de documentos (criar, visualizar, listar, editar e excluir).
+- Re-geração inteligente de embeddings: a API detecta se o conteúdo mudou e só aciona a API do Gemini se for estritamente necessário, otimizando cota de requisições.
+
+### 🔍 Busca Semântica em Duas Fases
+1. **Vector Recall (Fase 1)**: Converte a pesquisa em um vetor e realiza busca de alta velocidade trazendo o top-K candidatos (ajustável via `RERANK_TOP_K`, padrão `50`).
+   - Suporta métricas **Cosseno (`COSINE`)**, **Produto Escalar (`DOT`)** e **Euclidiana (`EUCLIDEAN`)**.
+2. **FlashRank Reranking (Fase 2)**: Os documentos retornados são re-ranqueados localmente usando o modelo cross-encoder leve `ms-marco-MiniLM-L-12-v2`. A resposta final é ordenada de forma ultra-precisa retornando o top-N (padrão `10`).
+
+### 📥 Importação em Lote (Batch Import)
+- Importação de JSON contendo múltiplos arquivos estruturados em base64.
+- logs em tempo real na tela do console.
+- Sistema de proteção contra duplicidade com prevenção de colisões de nomes por prefixo (`#ID`).
+
+### 🛠️ UX Avançado
+- **Visualizador Expansivo ("Ver mais")**: Cards na grade de resultados de busca que excedem o tamanho máximo exibem um gatilho de expansão que abre um modal com o texto original em monospace.
+- **Excluir Todos (Delete All)**: Opção destrutiva com dupla confirmação e tela de modal para limpar a base de dados vetorial de documentos de forma simples.
+
+---
+
+## Schema do Banco de Dados
+
+```sql
+CREATE TABLE IF NOT EXISTS vector_documentos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    conteudo MEDIUMTEXT NOT NULL,
+    embedding VECTOR(768) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    VECTOR INDEX idx_embedding (embedding) M=8 DISTANCE=cosine
+);
+```
+
+### Queries de Busca Vetorial (Fase 1: Recall)
+
+As buscas iniciais no banco de dados são traduzidas dinamicamente de acordo com o dialeto ativo pelo helper `get_vector_search_sql(metric)`:
+
+#### MariaDB (dev)
+- **Cosseno (`COSINE`)**:
+  ```sql
+  SELECT id, titulo, conteudo, (1 - VEC_DISTANCE_COSINE(embedding, VEC_FromText(%s))) AS similarity
+  FROM vector_documentos ORDER BY similarity DESC LIMIT 50;
+  ```
+- **Produto Escalar (`DOT`)**:
+  ```sql
+  SELECT id, titulo, conteudo, VEC_DISTANCE(embedding, VEC_FromText(%s)) AS similarity
+  FROM vector_documentos ORDER BY similarity DESC LIMIT 50;
+  ```
+- **Euclidiana (`EUCLIDEAN`)**:
+  ```sql
+  SELECT id, titulo, conteudo, VEC_DISTANCE_EUCLIDEAN(embedding, VEC_FromText(%s)) AS similarity
+  FROM vector_documentos ORDER BY similarity ASC LIMIT 50;
+  ```
+
+#### MySQL HeatWave (prod)
+- **Cosseno (`COSINE`)**:
+  ```sql
+  SELECT id, titulo, conteudo, (1 - DISTANCE(embedding, STRING_TO_VECTOR(%s), 'COSINE')) AS similarity
+  FROM vector_documentos ORDER BY similarity DESC LIMIT 50;
+  ```
+
+---
+
+## Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto conforme a estrutura de [.env.example](file:///Users/alexandre/Documents/ProjetosAntigravity/VectorSearchWithRerankPython/.env.example):
+
+```env
+PORT=3000
+DB_HOST=localhost
+DB_USER=app_user
+DB_PASS=app_password
+DB_NAME=meu_vector_db
+DB_PORT=3306
+DB_DIALECT=mariadb
+GEMINI_API_KEY=sua_chave_api_aqui
+GEMINI_MODEL=gemini-embedding-2
+APP_USERNAME=admin
+APP_PASSWORD=local_app_password
+JWT_SECRET=supersecretlocaljwtkey123!
+ADMIN_EMAIL=admin@example.com
+MAX_UPLOAD_SIZE_MB=10
+RERANK_MODEL=ms-marco-MiniLM-L-12-v2
+RERANK_TOP_K=50
+```
+
+---
+
+## Setup & Execução Local
+
+### Opção 1: Docker Compose (Recomendado)
+
+Sobe a aplicação unificada FastAPI + MariaDB 11.8 com suporte a busca vetorial nativa:
 
 ```bash
 # 1. Clone o repositório
 git clone https://github.com/AlexandreDeCarli/VectorSearchWithRerankPython.git
 cd VectorSearchWithRerankPython
 
-# 2. Configure as variáveis de ambiente
+# 2. Copie e preencha as variáveis de ambiente no .env
 cp .env.example .env
-# Edite o .env com suas credenciais
 
-# 3. Instale as dependências Python
+# 3. Inicie os containers com build automático
+docker compose up --build
+```
+
+O sistema irá aguardar a inicialização completa do banco de dados, aplicar as migrations automáticas pendentes, fazer o download do modelo FlashRank no cache local e expor a API na porta `3000`.
+
+### Opção 2: Execução Manual no Host
+
+#### Backend
+```bash
+# Instale as dependências Python
 pip install -r requirements.txt
 
-# 4. Instale e build o frontend
-cd frontend && npm install && npm run build && cd ..
-
-# 5. Inicie o servidor
+# Inicie o servidor ASGI FastAPI
 python -m uvicorn backend.main:app --reload --port 3000
 ```
 
-### Docker Compose
-
+#### Frontend
 ```bash
-# Desenvolvimento (com MariaDB local)
-docker compose up --build
-
-# Produção (com HeatWave externo)
-docker compose -f docker-compose.prod.yml up --build
+cd frontend
+npm install
+npm run dev
 ```
 
-## ⚙️ Variáveis de Ambiente
+---
 
-| Variável | Descrição | Default |
-|----------|-----------|---------|
-| `PORT` | Porta do servidor | `3000` |
-| `DB_HOST` | Host do banco de dados | `localhost` |
-| `DB_USER` | Usuário do banco | `root` |
-| `DB_PASS` | Senha do banco | `root` |
-| `DB_NAME` | Nome do banco | `meu_vector_db` |
-| `DB_PORT` | Porta do banco | `3306` |
-| `DB_DIALECT` | Dialeto SQL (`mariadb` ou `heatwave`) | `mariadb` |
-| `GEMINI_API_KEY` | Chave da API Google Gemini | — |
-| `GEMINI_MODEL` | Modelo de embedding | `gemini-embedding-2` |
-| `APP_USERNAME` | Usuário para login | `admin` |
-| `APP_PASSWORD` | Senha para login | — |
-| `JWT_SECRET` | Segredo para tokens JWT | `local_jwt_secret` |
-| `RERANK_MODEL` | Modelo FlashRank | `ms-marco-MiniLM-L-12-v2` |
-| `RERANK_TOP_K` | Candidatos para recall vetorial | `50` |
+## Migrations Automáticas
 
-## 📡 API Endpoints
+As migrations vivem na pasta `/migrations` e são gerenciadas pelo arquivo [migrate.py](file:///Users/alexandre/Documents/ProjetosAntigravity/VectorSearchWithRerankPython/backend/migrate.py) no startup. 
+
+O sistema reconhece os seguintes formatos:
+- `*.mariadb.sql` — Executa apenas sob dialeto `mariadb`
+- `*.heatwave.sql` — Executa apenas sob dialeto `heatwave`
+- `*.sql` — Executa em ambos de forma agnóstica
+
+---
+
+## API Endpoints
+
+Todas as rotas requerem o cabeçalho `Authorization: Bearer <token>` (com exceção do login).
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `POST` | `/api/auth/login` | Autenticação (retorna JWT) |
-| `GET` | `/api/documents` | Listar documentos |
-| `GET` | `/api/documents/:id` | Obter documento por ID |
-| `POST` | `/api/documents` | Criar documento |
-| `POST` | `/api/documents/import` | Importar documento (base64) |
-| `PUT` | `/api/documents/:id` | Atualizar documento |
-| `DELETE` | `/api/documents` | Excluir todos |
-| `DELETE` | `/api/documents/:id` | Excluir por ID |
-| `POST` | `/api/search` | Busca vetorial com reranking |
+| `POST` | `/api/auth/login` | Login administrativo (retorna token JWT) |
+| `GET` | `/api/documents` | Listar metadados dos documentos cadastrados |
+| `GET` | `/api/documents/:id` | Detalhar conteúdo de um documento |
+| `POST` | `/api/documents` | Criar um novo documento e gerar seu embedding |
+| `POST` | `/api/documents/import` | Importação em lote (JSON c/ base64) |
+| `PUT` | `/api/documents/:id` | Editar título/conteúdo de documento existente |
+| `DELETE` | `/api/documents` | Excluir todos os registros da tabela |
+| `DELETE` | `/api/documents/:id` | Excluir um documento por ID |
+| `POST` | `/api/search` | Busca semântica em duas fases (Recall + Reranking) |
 
-### Exemplo de Busca
+### Formato de Retorno de Busca (`POST /api/search`)
 
-```bash
-curl -X POST http://localhost:3000/api/search \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "contrato de aluguel", "metric": "COSINE"}'
-```
+A resposta do endpoint de busca retorna a similaridade vetorial bruta calculada pelo banco (`similarity`) e a nota re-processada refinada pelo FlashRank (`rerank_score`):
 
-Resposta:
 ```json
 [
   {
     "id": 1,
-    "titulo": "contrato_001.txt",
-    "conteudo": "Contrato de aluguel residencial...",
-    "similarity": 0.89,
-    "rerank_score": 0.95
+    "titulo": "contrato_01.txt",
+    "conteudo": "...",
+    "similarity": 0.8924,
+    "rerank_score": 0.9875
   }
 ]
 ```
 
-## 📁 Estrutura do Projeto
+---
 
-```
-├── backend/
-│   ├── __init__.py
-│   ├── main.py              # Entry point FastAPI
-│   ├── config.py             # Configuração via env vars
-│   ├── database.py           # Pool de conexões MySQL
-│   ├── sql_dialect.py        # Abstração MariaDB/HeatWave
-│   ├── gemini_client.py      # Geração de embeddings
-│   ├── auth.py               # Autenticação JWT
-│   ├── reranker.py           # Integração FlashRank
-│   ├── migrate.py            # Sistema de migrations
-│   └── routers/
-│       ├── documents.py      # CRUD de documentos
-│       └── search.py         # Busca vetorial + reranking
-├── frontend/                  # React + TypeScript (Vite)
-├── migrations/                # Arquivos SQL de migração
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-└── docker-compose.prod.yml
-```
+## Referências
 
-## 🔧 Desenvolvimento
+- [FastAPI Framework Documentation](https://fastapi.tiangolo.com)
+- [FlashRank Python Library](https://github.com/PrithivirajDamodaran/FlashRank)
+- [Google Gemini Embedding API](https://ai.google.dev/gemini-api/docs/embeddings)
+- [MariaDB Vector Functions](https://mariadb.com/docs/server/reference/sql-functions/vector-functions/)
 
-```bash
-# Backend (com hot reload)
-python -m uvicorn backend.main:app --reload --port 3000
+---
 
-# Frontend (dev server com proxy)
-cd frontend && npm run dev
-```
+## Licença
 
-## 📜 Licença
-
-MIT License
+[MIT](LICENSE) © Alexandre De Carli
