@@ -11,6 +11,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
       DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DIALECT: ${DB_DIALECT:-heatwave}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-embedding-2}
