@@ -19,4 +19,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       RERANK_MODEL: ${RERANK_MODEL:-unicamp-dl/monoptt5-base}
       RERANK_TOP_K: ${RERANK_TOP_K:-20}
+    volumes:
+      - flashrank_cache:/app/flashrank_cache
+      - huggingface_cache:/root/.cache/huggingface
     restart: always
+
+volumes:
+  flashrank_cache:
+  huggingface_cache:
